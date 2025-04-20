@@ -1,0 +1,98 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Preferences - Event Booking</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+</head>
+<body class="bg-gray-100 text-gray-900">
+  <div class="max-w-md mx-auto mt-10 bg-white p-6 rounded shadow">
+    <h1 class="text-xl font-bold mb-4 text-center">Select Your Event Preferences</h1>
+    <form id="preferences-form" class="space-y-4">
+      <div>
+        <label class="inline-flex items-center">
+          <input type="checkbox" name="genres" value="KZFzniwnSyZfZ7v7nJ" class="form-checkbox" />
+          <span class="ml-2">Music</span>
+        </label>
+      </div>
+      <div>
+        <label class="inline-flex items-center">
+          <input type="checkbox" name="genres" value="KZFzniwnSyZfZ7v7nE" class="form-checkbox" />
+          <span class="ml-2">Sports</span>
+        </label>
+      </div>
+      <div>
+        <label class="inline-flex items-center">
+          <input type="checkbox" name="genres" value="KZFzniwnSyZfZ7v7na" class="form-checkbox" />
+          <span class="ml-2">Arts & Theatre</span>
+        </label>
+      </div>
+      <div>
+        <label class="inline-flex items-center">
+          <input type="checkbox" name="genres" value="KZFzniwnSyZfZ7v7nn" class="form-checkbox" />
+          <span class="ml-2">Film</span>
+        </label>
+      </div>
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full">Save Preferences</button>
+    </form>
+    <div class="mt-6 text-center">
+      <a href="events.html" class="text-blue-600 underline hover:text-blue-800">← Back to Events</a>
+    </div>
+    
+    <p id="message" class="text-center text-green-600 mt-4 hidden">Preferences saved!</p>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCyBdL6d2jDhWqXrIVAHpZfhFnxVq-J11I",
+      authDomain: "website-a1862.firebaseapp.com",
+      projectId: "website-a1862",
+      storageBucket: "website-a1862.firebasestorage.app",
+      messagingSenderId: "1039428075573",
+      appId: "1:1039428075573:web:2026ad869ccfe56495317c"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const form = document.getElementById("preferences-form");
+    const message = document.getElementById("message");
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return (window.location.href = "index.html");
+
+      const uid = user.uid;
+      const prefRef = doc(db, "users", uid);
+      const snapshot = await getDoc(prefRef);
+
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        const selected = data.preferences || [];
+        document.querySelectorAll("input[name='genres']").forEach(input => {
+          input.checked = selected.includes(input.value);
+        });
+      }
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const selectedGenres = Array.from(document.querySelectorAll("input[name='genres']:checked"))
+                                    .map(input => input.value);
+
+        try {
+          await setDoc(prefRef, { preferences: selectedGenres }, { merge: true });
+          message.classList.remove("hidden");
+        } catch (err) {
+          console.error("Error saving preferences:", err);
+          alert("Failed to save preferences.");
+        }
+      });
+    });
+  </script>
+</body>
+</html>

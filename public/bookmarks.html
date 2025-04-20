@@ -1,0 +1,89 @@
+<!-- bookmarks.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My Bookmarked Events</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 text-gray-900">
+  <header class="bg-white shadow p-4 mb-6">
+    <div class="max-w-6xl mx-auto flex justify-between items-center">
+      <h1 class="text-2xl font-bold">My Bookmarks</h1>
+      <div class="space-x-4">
+        <a href="events.html" class="text-blue-600 underline">Browse Events</a>
+        <a href="index.html" class="text-blue-600 underline">Logout</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto p-4">
+    <h2 class="text-xl font-semibold mb-4">Saved Events</h2>
+    <div id="bookmark-list" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <!-- Bookmarked events will appear here -->
+    </div>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+    import { getFirestore, collection, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+    
+const firebaseConfig = {
+  apiKey: "AIzaSyCyBdL6d2jDhWqXrIVAHpZfhFnxVq-J11I",
+  authDomain: "website-a1862.firebaseapp.com",
+  projectId: "website-a1862",
+  storageBucket: "website-a1862.firebasestorage.app",
+  messagingSenderId: "1039428075573",
+  appId: "1:1039428075573:web:2026ad869ccfe56495317c"
+};
+
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const list = document.getElementById("bookmark-list");
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return (window.location.href = "index.html");
+
+      const bookmarksRef = collection(db, `users/${user.uid}/bookmarks`);
+      const snapshot = await getDocs(bookmarksRef);
+
+      if (snapshot.empty) {
+        list.innerHTML = '<p class="text-gray-500">No bookmarks found.</p>';
+        return;
+      }
+
+      snapshot.forEach(docSnap => {
+        const event = docSnap.data();
+        const eventId = docSnap.id;
+        const div = document.createElement("div");
+        div.className = "bg-white p-4 rounded shadow flex flex-col justify-between";
+
+        div.innerHTML = `
+          <img src="${event.image}" alt="${event.title}" class="w-full h-40 object-cover mb-3 rounded">
+          <h3 class="text-lg font-bold mb-1">${event.title}</h3>
+          <p class="text-sm text-gray-600 mb-2">${event.date} at ${event.venue}</p>
+          <div class="flex justify-between items-center mt-auto">
+            <a href="${event.url}" target="_blank" class="text-blue-600 underline">View Event</a>
+            <button class="remove-btn text-red-600 text-sm" data-id="${eventId}">Remove ❌</button>
+          </div>
+        `;
+
+        div.querySelector(".remove-btn").addEventListener("click", async (e) => {
+          const id = e.target.getAttribute("data-id");
+          if (confirm("Remove this bookmark?")) {
+            await deleteDoc(doc(db, `users/${user.uid}/bookmarks/${id}`));
+            div.remove();
+          }
+        });
+
+        list.appendChild(div);
+      });
+    });
+  </script>
+</body>
+</html>

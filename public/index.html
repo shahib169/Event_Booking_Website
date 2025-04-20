@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Login - Event Booking</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+  <div class="bg-white p-8 rounded shadow max-w-md w-full">
+    <h1 class="text-2xl font-bold mb-6 text-center">Login</h1>
+    <form id="login-form" class="space-y-4">
+      <input type="email" placeholder="Email" class="w-full p-2 border rounded" required />
+      <input type="password" placeholder="Password" class="w-full p-2 border rounded" required />
+      <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">Login</button>
+    </form>
+    <p class="mt-4 text-sm text-center">Don't have an account? <a href="register.html" class="text-blue-600 underline">Register</a></p>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCyBdL6d2jDhWqXrIVAHpZfhFnxVq-J11I",
+      authDomain: "website-a1862.firebaseapp.com",
+      projectId: "website-a1862",
+      storageBucket: "website-a1862.firebasestorage.app",
+      messagingSenderId: "1039428075573",
+      appId: "1:1039428075573:web:2026ad869ccfe56495317c"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    document.getElementById("login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const email = e.target.querySelector('input[type="email"]').value;
+    const password = e.target.querySelector('input[type="password"]').value;
+
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const uid = userCredential.user.uid;
+      const roleSnap = await getDoc(doc(db, "users", uid));
+
+    if (!roleSnap.exists()) throw new Error("User role not found.");
+    
+    const role = roleSnap.data().role;
+    console.log("Logged in as:", email);
+    console.log("Role:", role);
+
+        if (role === "admin") {
+          console.log("Redirecting to admin.html");
+          window.location.href = "admin.html";
+        } else if (role === "customer") {
+          console.log("Redirecting to events.html");
+          window.location.href = "events.html";
+        } else {
+          console.warn("Unexpected role:", role);
+          alert("Unknown role: " + role);
+        }
+
+      } catch (err) {
+        console.error("Login failed:", err);
+        alert("Login failed: " + err.message);
+      }
+    });
+  </script>
+</body>
+</html>
