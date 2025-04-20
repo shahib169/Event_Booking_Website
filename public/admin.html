@@ -2,36 +2,63 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Admin Panel - Event Booking</title>
+  <title>Admin Dashboard - Event Booking</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
 </head>
-<body class="bg-gray-100 min-h-screen p-6">
-  <div class="max-w-5xl mx-auto bg-white rounded shadow p-6">
-    <h1 class="text-2xl font-bold mb-4">Admin Panel - Manage Custom Events</h1>
+<body class="bg-gray-100 p-6">
+  <div class="flex justify-end mb-4">
+    <button id="logout-button" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+      Logout
+    </button>
+  </div>
+  
+  <div class="max-w-7xl mx-auto bg-white p-6 rounded shadow">
+    <h1 class="text-3xl font-bold mb-6">Admin Dashboard</h1>
 
-    <form id="event-form" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+    <h2 class="text-xl font-semibold mb-2">Create / Edit Event</h2>
+    <form id="event-form" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
       <input type="hidden" id="event-id" />
       <input type="text" id="title" placeholder="Title" class="border p-2 rounded" required />
       <input type="date" id="date" class="border p-2 rounded" required />
       <input type="text" id="city" placeholder="City" class="border p-2 rounded" required />
-      <input type="text" id="genre" placeholder="Genre (e.g. Music, Sports)" class="border p-2 rounded" required />
+      <input type="text" id="genre" placeholder="Genre" class="border p-2 rounded" required />
       <input type="text" id="venue" placeholder="Venue" class="border p-2 rounded" required />
       <input type="url" id="image" placeholder="Image URL" class="border p-2 rounded" required />
       <input type="url" id="url" placeholder="Ticket URL" class="border p-2 rounded" required />
+      <input type="text" id="tags" placeholder="Tags (comma separated)" class="border p-2 rounded" />
       <div class="col-span-full">
-        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-          Save Event
-        </button>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Save Event</button>
       </div>
     </form>
 
     <h2 class="text-xl font-semibold mb-4">Custom Events</h2>
-    <div id="event-list" class="space-y-4"></div>
+    <div id="event-list" class="space-y-4 mb-10"></div>
+
+    <h2 class="text-xl font-semibold mb-4">Manage Users</h2>
+    <div id="user-list" class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="bg-gray-200">
+            <th class="p-2">Email</th>
+            <th class="p-2">Role</th>
+            <th class="p-2">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="user-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="preview-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white p-6 rounded shadow max-w-lg w-full relative">
+      <button class="absolute top-2 right-2 text-xl" onclick="this.parentElement.parentElement.classList.add('hidden')">&times;</button>
+      <div id="preview-content"></div>
+    </div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getFirestore, collection, doc, getDocs, updateDoc, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
     const firebaseConfig = {
@@ -44,38 +71,59 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
     const db = getFirestore(app);
+    const auth = getAuth(app);
 
     const form = document.getElementById("event-form");
     const eventList = document.getElementById("event-list");
+    const userTable = document.getElementById("user-table");
+    const previewModal = document.getElementById("preview-modal");
+    const previewContent = document.getElementById("preview-content");
 
-    const clearForm = () => {
+    function clearForm() {
       form.reset();
       document.getElementById("event-id").value = "";
-    };
+    }
 
-    const renderEvents = async () => {
+    async function loadEvents() {
       eventList.innerHTML = "";
-      const snapshot = await getDocs(collection(db, "events_custom"));
-      snapshot.forEach(docSnap => {
+      const snap = await getDocs(collection(db, "events_custom"));
+      snap.forEach(docSnap => {
         const data = docSnap.data();
         const div = document.createElement("div");
-        div.className = "p-4 border rounded bg-gray-50 flex justify-between items-center";
+        div.className = "p-4 bg-gray-50 rounded border flex justify-between items-center";
         div.innerHTML = `
           <div>
-            <h3 class="font-bold">${data.title}</h3>
-            <p class="text-sm text-gray-600">${data.date} · ${data.city} · ${data.genre}</p>
-            <a href="${data.url}" class="text-blue-600 underline text-sm" target="_blank">Ticket Link</a>
+            <strong>${data.title}</strong><br>
+            <small>${data.date} - ${data.city} (${data.genre})</small><br>
+            <small>Tags: ${(data.tags || []).join(', ')}</small>
           </div>
           <div class="space-x-2">
-            <button class="edit-btn bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded" data-id="${docSnap.id}">Edit</button>
-            <button class="delete-btn bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded" data-id="${docSnap.id}">Delete</button>
+            <button class="bg-green-600 text-white px-3 py-1 rounded preview-btn" data-id="${docSnap.id}">View</button>
+            <button class="bg-yellow-500 text-white px-3 py-1 rounded edit-btn" data-id="${docSnap.id}">Edit</button>
+            <button class="bg-red-600 text-white px-3 py-1 rounded delete-btn" data-id="${docSnap.id}">Delete</button>
           </div>
         `;
         eventList.appendChild(div);
       });
-    };
+    }
+
+    async function loadUsers() {
+      const snap = await getDocs(collection(db, "users"));
+      userTable.innerHTML = "";
+      snap.forEach(userDoc => {
+        const user = userDoc.data();
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="p-2">${user.email || "-"}</td>
+          <td class="p-2">${user.role || "user"}</td>
+          <td class="p-2">
+            <button class="bg-blue-600 text-white px-2 py-1 rounded change-role" data-id="${userDoc.id}">Toggle Role</button>
+          </td>
+        `;
+        userTable.appendChild(tr);
+      });
+    }
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -87,71 +135,100 @@
         genre: form.genre.value,
         venue: form.venue.value,
         image: form.image.value,
-        url: form.url.value
+        url: form.url.value,
+        tags: form.tags.value ? form.tags.value.split(",").map(tag => tag.trim()).filter(Boolean) : []
       };
-
       try {
-        if (id) {
-          await updateDoc(doc(db, "events_custom", id), data);
-          alert("Event updated!");
-        } else {
-          await addDoc(collection(db, "events_custom"), data);
-          alert("Event added!");
-        }
+        if (id) await updateDoc(doc(db, "events_custom", id), data);
+        else await addDoc(collection(db, "events_custom"), data);
         clearForm();
-        renderEvents();
+        loadEvents();
       } catch (err) {
-        console.error("Error saving event:", err);
-        alert("Failed to save event.");
+        alert("Failed to save event");
       }
     });
 
     eventList.addEventListener("click", async (e) => {
       const id = e.target.dataset.id;
       if (e.target.classList.contains("delete-btn")) {
-        if (confirm("Are you sure you want to delete this event?")) {
+        if (confirm("Delete this event?")) {
           await deleteDoc(doc(db, "events_custom", id));
-          renderEvents();
+          loadEvents();
         }
       }
-
       if (e.target.classList.contains("edit-btn")) {
-        const docSnap = await getDocs(collection(db, "events_custom"));
-        docSnap.forEach(docRef => {
-          if (docRef.id === id) {
-            const data = docRef.data();
+        const snap = await getDocs(collection(db, "events_custom"));
+        snap.forEach(d => {
+          if (d.id === id) {
+            const dta = d.data();
             document.getElementById("event-id").value = id;
-            form.title.value = data.title;
-            form.date.value = data.date;
-            form.city.value = data.city;
-            form.genre.value = data.genre;
-            form.venue.value = data.venue;
-            form.image.value = data.image;
-            form.url.value = data.url;
+            form.title.value = dta.title;
+            form.date.value = dta.date;
+            form.city.value = dta.city;
+            form.genre.value = dta.genre;
+            form.venue.value = dta.venue;
+            form.image.value = dta.image;
+            form.url.value = dta.url;
+            form.tags.value = (dta.tags || []).join(", ");
+          }
+        });
+      }
+      if (e.target.classList.contains("preview-btn")) {
+        const snap = await getDocs(collection(db, "events_custom"));
+        snap.forEach(d => {
+          if (d.id === id) {
+            const dta = d.data();
+            previewContent.innerHTML = `
+              <h2 class="text-xl font-bold mb-2">${dta.title}</h2>
+              <img src="${dta.image}" alt="Event Image" class="mb-3 w-full h-40 object-cover rounded" />
+              <p><strong>Date:</strong> ${dta.date}</p>
+              <p><strong>City:</strong> ${dta.city}</p>
+              <p><strong>Genre:</strong> ${dta.genre}</p>
+              <p><strong>Venue:</strong> ${dta.venue}</p>
+              <p><strong>Tags:</strong> ${(dta.tags || []).join(', ')}</p>
+              <p><a href="${dta.url}" class="text-blue-600 underline" target="_blank">View Ticket Link</a></p>
+            `;
+            previewModal.classList.remove("hidden");
           }
         });
       }
     });
 
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) return (window.location.href = "index.html");
-
-      const userDoc = await getDocs(collection(db, "users"));
-      let isAdmin = false;
-
-      userDoc.forEach(docSnap => {
-        if (docSnap.id === user.uid && docSnap.data().role === "admin") {
-          isAdmin = true;
-        }
-      });
-
-      if (!isAdmin) {
-        alert("Access denied. Admins only.");
-        window.location.href = "events.html";
-      } else {
-        renderEvents();
+    userTable.addEventListener("click", async (e) => {
+      if (e.target.classList.contains("change-role")) {
+        const id = e.target.dataset.id;
+        const ref = doc(db, "users", id);
+        const snap = await getDocs(collection(db, "users"));
+        snap.forEach(async userDoc => {
+          if (userDoc.id === id) {
+            const role = userDoc.data().role === "admin" ? "customer" : "admin";
+            await updateDoc(ref, { role });
+            loadUsers();
+          }
+        });
       }
     });
+
+    onAuthStateChanged(auth, async user => {
+      if (!user) return (window.location.href = "index.html");
+      const snap = await getDocs(collection(db, "users"));
+      let isAdmin = false;
+      snap.forEach(docSnap => {
+        if (docSnap.id === user.uid && docSnap.data().role === "admin") isAdmin = true;
+      });
+      if (!isAdmin) return (window.location.href = "events.html");
+      loadEvents();
+      loadUsers();
+    });
+
+    const logoutBtn = document.getElementById("logout-button");
+
+    logoutBtn.addEventListener("click", () => {
+      auth.signOut().then(() => {
+        window.location.href = "index.html"; // Redirect to login
+      });
+    });
+
   </script>
 </body>
 </html>
