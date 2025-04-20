@@ -1,62 +1,157 @@
-<!-- admin.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Admin Dashboard - Event Booking</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <title>Admin Panel - Event Booking</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
 </head>
-<body class="bg-gray-100 text-gray-900">
-  <header class="bg-white shadow p-4 mb-6">
-    <div class="max-w-6xl mx-auto flex justify-between items-center">
-      <h1 class="text-2xl font-bold">Admin Dashboard</h1>
-      <a href="create-event.html" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">+ Create Event</a>
-    </div>
-  </header>
+<body class="bg-gray-100 min-h-screen p-6">
+  <div class="max-w-5xl mx-auto bg-white rounded shadow p-6">
+    <h1 class="text-2xl font-bold mb-4">Admin Panel - Manage Custom Events</h1>
 
-  <main class="max-w-6xl mx-auto p-4">
-    <h2 class="text-xl font-semibold mb-4">Your Events</h2>
-    <div id="event-list" class="grid md:grid-cols-2 gap-4">
-      <!-- Events will be loaded here -->
-    </div>
-  </main>
+    <form id="event-form" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+      <input type="hidden" id="event-id" />
+      <input type="text" id="title" placeholder="Title" class="border p-2 rounded" required />
+      <input type="date" id="date" class="border p-2 rounded" required />
+      <input type="text" id="city" placeholder="City" class="border p-2 rounded" required />
+      <input type="text" id="genre" placeholder="Genre (e.g. Music, Sports)" class="border p-2 rounded" required />
+      <input type="text" id="venue" placeholder="Venue" class="border p-2 rounded" required />
+      <input type="url" id="image" placeholder="Image URL" class="border p-2 rounded" required />
+      <input type="url" id="url" placeholder="Ticket URL" class="border p-2 rounded" required />
+      <div class="col-span-full">
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+          Save Event
+        </button>
+      </div>
+    </form>
 
-  <!-- Firebase Script -->
+    <h2 class="text-xl font-semibold mb-4">Custom Events</h2>
+    <div id="event-list" class="space-y-4"></div>
+  </div>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
-    
-const firebaseConfig = {
-  apiKey: "AIzaSyCyBdL6d2jDhWqXrIVAHpZfhFnxVq-J11I",
-  authDomain: "website-a1862.firebaseapp.com",
-  projectId: "website-a1862",
-  storageBucket: "website-a1862.firebasestorage.app",
-  messagingSenderId: "1039428075573",
-  appId: "1:1039428075573:web:2026ad869ccfe56495317c"
-};
-
+    const firebaseConfig = {
+      apiKey: "AIzaSyCyBdL6d2jDhWqXrIVAHpZfhFnxVq-J11I",
+      authDomain: "website-a1862.firebaseapp.com",
+      projectId: "website-a1862",
+      storageBucket: "website-a1862.firebasestorage.app",
+      messagingSenderId: "1039428075573",
+      appId: "1:1039428075573:web:2026ad869ccfe56495317c"
+    };
 
     const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
     const db = getFirestore(app);
 
+    const form = document.getElementById("event-form");
     const eventList = document.getElementById("event-list");
 
-    async function loadEvents() {
-      const querySnapshot = await getDocs(collection(db, "events"));
-      querySnapshot.forEach((doc) => {
-        const event = doc.data();
+    const clearForm = () => {
+      form.reset();
+      document.getElementById("event-id").value = "";
+    };
+
+    const renderEvents = async () => {
+      eventList.innerHTML = "";
+      const snapshot = await getDocs(collection(db, "events_custom"));
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
         const div = document.createElement("div");
-        div.className = "bg-white p-4 rounded shadow";
+        div.className = "p-4 border rounded bg-gray-50 flex justify-between items-center";
         div.innerHTML = `
-          <h3 class="text-lg font-bold">${event.title}</h3>
-          <p>${event.date} - ${event.location}</p>
+          <div>
+            <h3 class="font-bold">${data.title}</h3>
+            <p class="text-sm text-gray-600">${data.date} · ${data.city} · ${data.genre}</p>
+            <a href="${data.url}" class="text-blue-600 underline text-sm" target="_blank">Ticket Link</a>
+          </div>
+          <div class="space-x-2">
+            <button class="edit-btn bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded" data-id="${docSnap.id}">Edit</button>
+            <button class="delete-btn bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded" data-id="${docSnap.id}">Delete</button>
+          </div>
         `;
         eventList.appendChild(div);
       });
-    }
+    };
 
-    loadEvents();
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const id = document.getElementById("event-id").value;
+      const data = {
+        title: form.title.value,
+        date: form.date.value,
+        city: form.city.value,
+        genre: form.genre.value,
+        venue: form.venue.value,
+        image: form.image.value,
+        url: form.url.value
+      };
+
+      try {
+        if (id) {
+          await updateDoc(doc(db, "events_custom", id), data);
+          alert("Event updated!");
+        } else {
+          await addDoc(collection(db, "events_custom"), data);
+          alert("Event added!");
+        }
+        clearForm();
+        renderEvents();
+      } catch (err) {
+        console.error("Error saving event:", err);
+        alert("Failed to save event.");
+      }
+    });
+
+    eventList.addEventListener("click", async (e) => {
+      const id = e.target.dataset.id;
+      if (e.target.classList.contains("delete-btn")) {
+        if (confirm("Are you sure you want to delete this event?")) {
+          await deleteDoc(doc(db, "events_custom", id));
+          renderEvents();
+        }
+      }
+
+      if (e.target.classList.contains("edit-btn")) {
+        const docSnap = await getDocs(collection(db, "events_custom"));
+        docSnap.forEach(docRef => {
+          if (docRef.id === id) {
+            const data = docRef.data();
+            document.getElementById("event-id").value = id;
+            form.title.value = data.title;
+            form.date.value = data.date;
+            form.city.value = data.city;
+            form.genre.value = data.genre;
+            form.venue.value = data.venue;
+            form.image.value = data.image;
+            form.url.value = data.url;
+          }
+        });
+      }
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return (window.location.href = "index.html");
+
+      const userDoc = await getDocs(collection(db, "users"));
+      let isAdmin = false;
+
+      userDoc.forEach(docSnap => {
+        if (docSnap.id === user.uid && docSnap.data().role === "admin") {
+          isAdmin = true;
+        }
+      });
+
+      if (!isAdmin) {
+        alert("Access denied. Admins only.");
+        window.location.href = "events.html";
+      } else {
+        renderEvents();
+      }
+    });
   </script>
 </body>
 </html>
