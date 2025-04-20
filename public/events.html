@@ -155,34 +155,42 @@
         });
       }
 
-      async function fetchEvents(city = "London", genre = "", startDate = "", endDate = "") {
-        let url = `https://us-central1-website-a1862.cloudfunctions.net/getEvents?city=${encodeURIComponent(city)}`;
-        if (genre) url += `&classificationId=${genre}`;
-        if (startDate) url += `&startDateTime=${startDate}T00:00:00Z`;
-        if (endDate) url += `&endDateTime=${endDate}T23:59:59Z`;
+      async function fetchEvents(city = "", genre = "", startDate = "", endDate = "") {
+        const cities = city ? [city] : ["London", "Manchester", "Birmingham", "Glasgow", "Leeds"];
+        let allEvents = [];
 
         try {
-          const res = await fetch(url);
-          const data = await res.json();
-          let events = data._embedded?.events || [];
+          for (const c of cities) {
+            let url = `https://us-central1-website-a1862.cloudfunctions.net/getEvents?city=${encodeURIComponent(c)}`;
+            if (genre) url += `&classificationId=${genre}`;
+            if (startDate) url += `&startDateTime=${startDate}T00:00:00Z`;
+            if (endDate) url += `&endDateTime=${endDate}T23:59:59Z`;
 
-          // Deduplicate events by ID
+            const res = await fetch(url);
+            const data = await res.json();
+            const events = data._embedded?.events || [];
+
+            allEvents.push(...events);
+          }
+
+          // Remove duplicates by event.id
           const seen = new Set();
-          events = events.filter(event => {
+          const uniqueEvents = allEvents.filter(event => {
             if (seen.has(event.id)) return false;
             seen.add(event.id);
             return true;
           });
 
-          // Shuffle the array to add variation
-          events = events.sort(() => 0.5 - Math.random());
+          // Shuffle for variety
+          const shuffled = uniqueEvents.sort(() => 0.5 - Math.random());
 
-          renderEvents(events, eventContainer);
+          renderEvents(shuffled, eventContainer);
         } catch (err) {
           console.error("Fetch failed:", err);
           eventContainer.innerHTML = '<p class="text-red-500">Error loading events.</p>';
         }
       }
+
 
 
       async function loadSuggestedEvents(preferences = []) {
