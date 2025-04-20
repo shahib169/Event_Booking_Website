@@ -203,21 +203,45 @@
         section.style.display = "block";
         suggestedContainer.innerHTML = "";
 
+        const cities = ["London", "Manchester", "Birmingham", "Glasgow", "Leeds"];
+        const allSuggested = [];
+        const seenNames = new Set();
+
         for (const genre of preferences) {
-          try {
-            const url = `https://us-central1-website-a1862.cloudfunctions.net/getEvents?city=London&classificationId=${genre}`;
-            const res = await fetch(url);
-            const data = await res.json();
-            const events = data._embedded?.events || [];
-            if (events.length) {
-              await renderEvents(events, suggestedContainer, 3); // only 1 row max
-              break;
+          for (const city of cities) {
+            try {
+              const url = `https://us-central1-website-a1862.cloudfunctions.net/getEvents?city=${encodeURIComponent(city)}&classificationId=${genre}`;
+              const res = await fetch(url);
+              const data = await res.json();
+              const events = data._embedded?.events || [];
+
+              for (const event of events) {
+                const nameKey = event.name.toLowerCase().trim();
+
+                // Skip if this name already added (even with different IDs)
+                if (!seenNames.has(nameKey)) {
+                  seenNames.add(nameKey);
+                  allSuggested.push(event);
+                }
+
+                if (allSuggested.length >= 6) break;
+              }
+
+              if (allSuggested.length >= 6) break;
+            } catch (err) {
+              console.error(`Error loading suggested events for ${genre} in ${city}:`, err);
             }
-          } catch (err) {
-            console.error("Suggestion error:", err);
           }
+
+          if (allSuggested.length >= 6) break;
         }
+
+        // Shuffle & show top 3 unique-name events
+        const finalSuggestions = allSuggested.sort(() => 0.5 - Math.random()).slice(0, 3);
+        renderEvents(finalSuggestions, suggestedContainer);
       }
+
+
 
       // Form listener
       searchForm.addEventListener("submit", (e) => {
