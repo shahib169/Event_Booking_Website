@@ -1,209 +1,3 @@
-<!-- <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Events - Event Booking</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
-</head>
-<body class="bg-gray-100 text-gray-900">
-  <header class="bg-white shadow p-4 mb-6">
-    <div class="flex justify-between items-center max-w-6xl mx-auto">
-      <h1 class="text-2xl font-bold">Events</h1>
-      <div class="relative inline-block text-left">
-        <button id="profile-button" class="flex items-center space-x-2 text-blue-600 hover:underline focus:outline-none">
-          <div id="profile-avatar" class="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-semibold"></div>
-          <span id="profile-label">User</span>
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-        <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white border rounded shadow-lg z-50">
-          <a href="bookmarks.html" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">Bookmarks</a>
-          <a href="preferences.html" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">Preferences</a>
-          <button id="logout-button" class="w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100">Logout</button>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <main class="max-w-6xl mx-auto p-4">
-    <section id="suggested-section" class="mb-8">
-      <h2 class="text-xl font-bold mb-4">Suggested for You</h2>
-      <div id="suggested-list" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-    </section>
-
-    <h2 class="text-xl font-semibold mb-4">Search Events by City</h2>
-    <form id="search-form" class="mb-6 flex flex-wrap gap-2">
-      <input type="text" id="city-input" class="flex-1 p-2 border rounded" placeholder="Enter city (e.g. London)" required />
-      <select id="genre-input" class="p-2 border rounded">
-        <option value="">All Genres</option>
-        <option value="KZFzniwnSyZfZ7v7nJ">Music</option>
-        <option value="KZFzniwnSyZfZ7v7nE">Sports</option>
-        <option value="KZFzniwnSyZfZ7v7na">Arts & Theatre</option>
-        <option value="KZFzniwnSyZfZ7v7nn">Film</option>
-      </select>
-      <input type="date" id="start-date" class="p-2 border rounded" />
-      <input type="date" id="end-date" class="p-2 border rounded" />
-      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Search</button>
-    </form>
-
-    <div id="event-list" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-  </main>
-
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCyBdL6d2jDhWqXrIVAHpZfhFnxVq-J11I",
-      authDomain: "website-a1862.firebaseapp.com",
-      projectId: "website-a1862",
-      storageBucket: "website-a1862.firebasestorage.app",
-      messagingSenderId: "1039428075573",
-      appId: "1:1039428075573:web:2026ad869ccfe56495317c"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    const searchForm = document.getElementById("search-form");
-    const cityInput = document.getElementById("city-input");
-    const eventContainer = document.getElementById("event-list");
-    const suggestedContainer = document.getElementById("suggested-list");
-
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) return (window.location.href = "index.html");
-
-      const uid = user.uid;
-      const profileLabel = document.getElementById("profile-label");
-      const profileAvatar = document.getElementById("profile-avatar");
-      const name = user.displayName || user.email || "User";
-      profileLabel.textContent = name.split("@")[0];
-      profileAvatar.textContent = name.charAt(0).toUpperCase();
-
-      // Dropdown behaviour
-      const profileButton = document.getElementById("profile-button");
-      const dropdown = document.getElementById("profile-dropdown");
-      profileButton.addEventListener("click", () => dropdown.classList.toggle("hidden"));
-      document.addEventListener("click", (e) => {
-        if (!profileButton.contains(e.target) && !dropdown.contains(e.target)) dropdown.classList.add("hidden");
-      });
-
-      document.getElementById("logout-button").addEventListener("click", () => {
-        auth.signOut().then(() => window.location.href = "index.html");
-      });
-
-      // Render events
-      async function renderEvents(events, container) {
-        container.innerHTML = "";
-        if (!events.length) {
-          container.innerHTML = '<p class="text-gray-500">No events found.</p>';
-          return;
-        }
-
-        events.forEach(event => {
-          const card = document.createElement("div");
-          card.className = "bg-white p-4 rounded shadow flex flex-col justify-between";
-
-          const image = event.images?.[0]?.url || "";
-          const date = event.dates?.start?.localDate || "";
-          const name = event.name || "Unnamed Event";
-          const venue = event._embedded?.venues?.[0]?.name || "";
-          const link = event.url || "#";
-          const eventId = event.id;
-
-          card.innerHTML = `
-            <img src="${image}" alt="${name}" class="w-full h-40 object-cover mb-3 rounded">
-            <h3 class="text-lg font-bold mb-1">${name}</h3>
-            <p class="text-sm text-gray-600 mb-2">${date} at ${venue}</p>
-            <div class="flex justify-between items-center mt-auto">
-              <a href="${link}" target="_blank" class="text-sm text-blue-600 underline">View</a>
-              <button class="bookmark-btn text-red-500 text-xl" title="Save to bookmarks">❤</button>
-            </div>
-          `;
-
-          card.querySelector(".bookmark-btn").addEventListener("click", async () => {
-            try {
-              await setDoc(doc(db, `users/${uid}/bookmarks/${eventId}`), {
-                title: name,
-                date: date,
-                venue: venue,
-                image: image,
-                url: link
-              });
-              alert("Bookmarked!");
-            } catch (err) {
-              console.error("Failed to save bookmark:", err);
-              alert("Could not save bookmark.");
-            }
-          });
-
-          container.appendChild(card);
-        });
-      }
-
-      // Fetch events
-      async function fetchEvents(city = "London", genre = "", startDate = "", endDate = "") {
-        let url = `https://us-central1-website-a1862.cloudfunctions.net/getEvents?city=${encodeURIComponent(city)}`;
-        if (genre) url += `&classificationId=${genre}`;
-        if (startDate) url += `&startDateTime=${startDate}T00:00:00Z`;
-        if (endDate) url += `&endDateTime=${endDate}T23:59:59Z`;
-
-        try {
-          const res = await fetch(url);
-          const data = await res.json();
-          const events = data._embedded?.events || [];
-          renderEvents(events, eventContainer);
-        } catch (err) {
-          console.error("Failed to fetch events:", err);
-          eventContainer.innerHTML = '<p class="text-red-500">Error loading events. Try again later.</p>';
-        }
-      }
-
-      // Suggested
-      async function loadSuggestedEvents(preferences = []) {
-        const section = document.getElementById("suggested-section");
-        if (!preferences.length) {
-          section.style.display = "none";
-          return;
-        }
-
-        section.style.display = "block";
-        suggestedContainer.innerHTML = "";
-
-        for (const genre of preferences) {
-          const url = `https://us-central1-website-a1862.cloudfunctions.net/getEvents?city=London&classificationId=${genre}`;
-          try {
-            const res = await fetch(url);
-            const data = await res.json();
-            const events = data._embedded?.events || [];
-            renderEvents(events, suggestedContainer);
-          } catch (err) {
-            console.error("Suggested events error:", err);
-          }
-        }
-      }
-
-      // Form submit
-      searchForm.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const city = cityInput.value.trim();
-        const genre = document.getElementById("genre-input").value;
-        const start = document.getElementById("start-date").value;
-        const end = document.getElementById("end-date").value;
-        if (city) fetchEvents(city, genre, start, end);
-      });
-
-      fetchEvents(); // default London
-      const prefsSnap = await getDoc(doc(db, "users", uid));
-      const prefs = prefsSnap.data()?.preferences || [];
-      loadSuggestedEvents(prefs);
-    });
-  </script>
-</body>
-</html> -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -249,11 +43,19 @@
       <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Search</button>
     </form>
 
-    <!-- Suggested Events -->
-    <section id="suggested-section" class="mb-10">
-      <h2 class="text-xl font-bold mb-4">Suggested for You</h2>
+        <!-- Suggested Events -->
+    <section id="suggested-section" class="mb-10 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold text-blue-700 flex items-center gap-2">
+          🎯 Suggested for You
+        </h2>
+        <span class="text-sm text-blue-500">Based on your preferences</span>
+      </div>
       <div id="suggested-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
     </section>
+
+    <!-- Divider -->
+    <hr class="border-t border-gray-300 mb-8">
 
     <!-- Search Results -->
     <div id="event-list" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
@@ -362,13 +164,26 @@
         try {
           const res = await fetch(url);
           const data = await res.json();
-          const events = data._embedded?.events || [];
+          let events = data._embedded?.events || [];
+
+          // Deduplicate events by ID
+          const seen = new Set();
+          events = events.filter(event => {
+            if (seen.has(event.id)) return false;
+            seen.add(event.id);
+            return true;
+          });
+
+          // Shuffle the array to add variation
+          events = events.sort(() => 0.5 - Math.random());
+
           renderEvents(events, eventContainer);
         } catch (err) {
           console.error("Fetch failed:", err);
           eventContainer.innerHTML = '<p class="text-red-500">Error loading events.</p>';
         }
       }
+
 
       async function loadSuggestedEvents(preferences = []) {
         const section = document.getElementById("suggested-section");
