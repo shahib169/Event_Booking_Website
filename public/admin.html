@@ -180,7 +180,9 @@
             const dta = d.data();
             previewContent.innerHTML = `
               <h2 class="text-xl font-bold mb-2">${dta.title}</h2>
-              <img src="${dta.image}" alt="Event Image" class="mb-3 w-full h-40 object-cover rounded" />
+              <img src="${dta.image}" alt="Event Image"
+                onerror="this.src='https://via.placeholder.com/400x200?text=Image+Not+Available';"
+                class="mb-3 w-full h-40 object-cover rounded border" />
               <p><strong>Date:</strong> ${dta.date}</p>
               <p><strong>City:</strong> ${dta.city}</p>
               <p><strong>Genre:</strong> ${dta.genre}</p>
