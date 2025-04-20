@@ -27,7 +27,6 @@
   </header>
 
   <main class="max-w-6xl mx-auto p-4">
-    <!-- Search Bar with Filters -->
     <h2 class="text-xl font-semibold mb-4">Search Events by City</h2>
     <form id="search-form" class="mb-8 flex flex-wrap gap-2">
       <input type="text" id="city-input" class="flex-1 p-2 border rounded" placeholder="Enter city (e.g. London)" required />
@@ -43,7 +42,6 @@
       <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Search</button>
     </form>
 
-        <!-- Suggested Events -->
     <section id="suggested-section" class="mb-10 p-4 bg-blue-50 border border-blue-200 rounded-lg">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-xl font-bold text-blue-700 flex items-center gap-2">
@@ -54,17 +52,15 @@
       <div id="suggested-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
     </section>
 
-    <!-- Divider -->
     <hr class="border-t border-gray-300 mb-8">
 
-    <!-- Search Results -->
     <div id="event-list" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
   </main>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, getDocs, setDoc, collection } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCyBdL6d2jDhWqXrIVAHpZfhFnxVq-J11I",
@@ -94,7 +90,6 @@
       profileLabel.textContent = name.split("@")[0];
       profileAvatar.textContent = name.charAt(0).toUpperCase();
 
-      // Profile dropdown
       const profileButton = document.getElementById("profile-button");
       const dropdown = document.getElementById("profile-dropdown");
       profileButton.addEventListener("click", () => dropdown.classList.toggle("hidden"));
@@ -115,20 +110,23 @@
         }
 
         shown.forEach(event => {
+          const isCustom = event._isCustom || false;
+
           const card = document.createElement("div");
           card.className = "bg-white p-4 rounded shadow flex flex-col justify-between";
 
-          const image = event.images?.[0]?.url || "";
-          const date = event.dates?.start?.localDate || "";
-          const name = event.name || "Unnamed Event";
-          const venue = event._embedded?.venues?.[0]?.name || "";
+          const image = event.images?.[0]?.url || event.image || "";
+          const date = event.dates?.start?.localDate || event.date || "";
+          const name = event.name || event.title || "Unnamed Event";
+          const venue = event._embedded?.venues?.[0]?.name || event.venue || "";
           const link = event.url || "#";
-          const eventId = event.id;
+          const eventId = event.id || name.replace(/\s+/g, "-");
 
           card.innerHTML = `
             <img src="${image}" alt="${name}" class="w-full h-40 object-cover mb-3 rounded">
             <h3 class="text-lg font-bold mb-1">${name}</h3>
             <p class="text-sm text-gray-600 mb-2">${date} at ${venue}</p>
+            ${isCustom ? '<span class="inline-block bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded mb-2">🔥 Brand New</span>' : ""}
             <div class="flex justify-between items-center mt-auto">
               <a href="${link}" target="_blank" class="text-sm text-blue-600 underline">View</a>
               <button class="bookmark-btn text-red-500 text-xl" title="Save to bookmarks">❤</button>
@@ -169,29 +167,31 @@
             const res = await fetch(url);
             const data = await res.json();
             const events = data._embedded?.events || [];
-
             allEvents.push(...events);
           }
 
-          // Remove duplicates by event.id
+          const snap = await getDocs(collection(db, "events_custom"));
+          snap.forEach(docSnap => {
+            const ev = docSnap.data();
+            ev._isCustom = true;
+            allEvents.push(ev);
+          });
+
           const seen = new Set();
-          const uniqueEvents = allEvents.filter(event => {
-            if (seen.has(event.id)) return false;
-            seen.add(event.id);
+          const unique = allEvents.filter(e => {
+            const id = e.id || e.title;
+            if (seen.has(id)) return false;
+            seen.add(id);
             return true;
           });
 
-          // Shuffle for variety
-          const shuffled = uniqueEvents.sort(() => 0.5 - Math.random());
-
+          const shuffled = unique.sort(() => 0.5 - Math.random());
           renderEvents(shuffled, eventContainer);
         } catch (err) {
           console.error("Fetch failed:", err);
           eventContainer.innerHTML = '<p class="text-red-500">Error loading events.</p>';
         }
       }
-
-
 
       async function loadSuggestedEvents(preferences = []) {
         const section = document.getElementById("suggested-section");
@@ -217,13 +217,10 @@
 
               for (const event of events) {
                 const nameKey = event.name.toLowerCase().trim();
-
-                // Skip if this name already added (even with different IDs)
                 if (!seenNames.has(nameKey)) {
                   seenNames.add(nameKey);
                   allSuggested.push(event);
                 }
-
                 if (allSuggested.length >= 6) break;
               }
 
@@ -236,14 +233,10 @@
           if (allSuggested.length >= 6) break;
         }
 
-        // Shuffle & show top 3 unique-name events
         const finalSuggestions = allSuggested.sort(() => 0.5 - Math.random()).slice(0, 3);
         renderEvents(finalSuggestions, suggestedContainer);
       }
 
-
-
-      // Form listener
       searchForm.addEventListener("submit", (e) => {
         e.preventDefault();
         const city = cityInput.value.trim();
@@ -253,8 +246,8 @@
         if (city) fetchEvents(city, genre, start, end);
       });
 
-      // Default load
       fetchEvents();
+
       const userDoc = await getDoc(doc(db, "users", uid));
       const prefs = userDoc.data()?.preferences || [];
       loadSuggestedEvents(prefs);
