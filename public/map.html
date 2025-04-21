@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Map View - Event Booking</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>#map { height: 80vh; }</style>
+</head>
+<body class="bg-gray-100 text-gray-900">
+  <header class="bg-white shadow p-4 mb-4">
+    <div class="flex justify-between items-center max-w-6xl mx-auto">
+      <div class="flex items-center gap-6 text-xl font-bold">
+        <a href="events.html" class="text-blue-600 hover:underline">Events</a>
+        <span class="text-blue-900 underline">Map View</span>
+      </div>
+      <button id="logout-button" class="text-red-600 hover:underline">Logout</button>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto p-4">
+    
+    <div id="map" class="rounded shadow"></div>
+  </main>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCyBdL6d2jDhWqXrIVAHpZfhFnxVq-J11I",
+      authDomain: "website-a1862.firebaseapp.com",
+      projectId: "website-a1862",
+      storageBucket: "website-a1862.firebasestorage.app",
+      messagingSenderId: "1039428075573",
+      appId: "1:1039428075573:web:2026ad869ccfe56495317c"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const map = L.map('map').setView([51.505, -0.09], 6);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return window.location.href = "index.html";
+
+      const logoutBtn = document.getElementById("logout-button");
+      logoutBtn.addEventListener("click", () => auth.signOut().then(() => window.location.href = "index.html"));
+
+      // Get custom events
+      const snap = await getDocs(collection(db, "events_custom"));
+      snap.forEach(doc => {
+        const data = doc.data();
+        const { latitude, longitude, title, city, url } = data;
+        if (latitude && longitude) {
+          L.marker([latitude, longitude]).addTo(map)
+            .bindPopup(`<strong>${title}</strong><br>${city}<br><a href="${url}" target="_blank" class="text-blue-600 underline">View</a>`);
+        }
+      });
+    });
+
+    // Optional: Add current location
+    navigator.geolocation.getCurrentPosition(pos => {
+      const { latitude, longitude } = pos.coords;
+      L.marker([latitude, longitude]).addTo(map)
+        .bindPopup("📍 You are here").openPopup();
+      map.setView([latitude, longitude], 10);
+    });
+  </script>
+</body>
+</html>
