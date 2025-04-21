@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Event Reviews</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+</head>
+<body class="bg-gray-100 text-gray-900 p-6">
+  <div class="max-w-3xl mx-auto bg-white p-6 rounded shadow">
+    <h1 id="event-title" class="text-2xl font-bold mb-4">Reviews</h1>
+
+    <!-- ⭐ Review Form -->
+    <form id="review-form" class="mb-8 space-y-4">
+      <input type="text" id="reviewer-name" placeholder="Your Name (optional)" class="w-full p-2 border rounded" />
+      <textarea id="review-comment" placeholder="Write your review..." class="w-full p-2 border rounded" rows="4" required></textarea>
+      <div class="flex items-center gap-2">
+        <label class="font-medium">Rating:</label>
+        <select id="review-stars" class="border p-1 rounded">
+          <option value="5">★★★★★ (5)</option>
+          <option value="4">★★★★☆ (4)</option>
+          <option value="3">★★★☆☆ (3)</option>
+          <option value="2">★★☆☆☆ (2)</option>
+          <option value="1">★☆☆☆☆ (1)</option>
+        </select>
+      </div>
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Submit Review</button>
+    </form>
+
+    <div id="reviews-container" class="space-y-4"></div>
+
+    <div class="mt-6">
+      <a href="events.html" class="text-blue-600 underline">← Back to Events</a>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCyBdL6d2jDhWqXrIVAHpZfhFnxVq-J11I",
+      authDomain: "website-a1862.firebaseapp.com",
+      projectId: "website-a1862",
+      storageBucket: "website-a1862.firebasestorage.app",
+      messagingSenderId: "1039428075573",
+      appId: "1:1039428075573:web:2026ad869ccfe56495317c"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const eventId = params.get("eventId");
+    const eventName = params.get("name");
+
+    document.getElementById("event-title").textContent = `Reviews for ${eventName}`;
+
+    const reviewsContainer = document.getElementById("reviews-container");
+
+    function renderStars(starCount) {
+      return '★'.repeat(starCount) + '☆'.repeat(5 - starCount);
+    }
+
+    async function loadReviews() {
+      reviewsContainer.innerHTML = "";
+
+      const ref = collection(db, `reviews/${eventId}/entries`);
+      const snap = await getDocs(ref);
+
+      if (snap.empty) {
+        reviewsContainer.innerHTML = `<p class="text-gray-500">No reviews yet.</p>`;
+        return;
+      }
+
+      snap.forEach(doc => {
+        const data = doc.data();
+        const div = document.createElement("div");
+        div.className = "border p-4 rounded bg-gray-50";
+        div.innerHTML = `
+          <div class="flex items-center justify-between mb-2">
+            <strong>${data.name || "Anonymous"}</strong>
+            <span class="text-yellow-500 text-sm">${renderStars(data.stars || 0)}</span>
+          </div>
+          <p class="text-sm text-gray-700">${data.comment || "(No comment)"}</p>
+          <p class="text-xs text-gray-400 mt-1">${data.timestamp?.toDate().toLocaleString() || ""}</p>
+        `;
+        reviewsContainer.appendChild(div);
+      });
+    }
+
+    // ✅ Handle Review Submission
+    document.getElementById("review-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const name = document.getElementById("reviewer-name").value.trim();
+      const comment = document.getElementById("review-comment").value.trim();
+      const stars = parseInt(document.getElementById("review-stars").value);
+
+      if (!comment) return alert("Please enter a review comment.");
+
+      try {
+        const reviewRef = collection(db, `reviews/${eventId}/entries`);
+        await addDoc(reviewRef, {
+          name: name || "Anonymous",
+          comment,
+          stars,
+          timestamp: serverTimestamp()
+        });
+        alert("Review submitted!");
+        e.target.reset();
+        loadReviews();
+      } catch (err) {
+        console.error("Failed to submit review:", err);
+        alert("Could not submit review.");
+      }
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) return (window.location.href = "index.html");
+      loadReviews();
+    });
+  </script>
+</body>
+</html>

@@ -60,7 +60,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, getDocs, setDoc, collection } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, getDocs, setDoc, collection, serverTimestamp, addDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCyBdL6d2jDhWqXrIVAHpZfhFnxVq-J11I",
@@ -111,6 +111,7 @@
 
         shown.forEach(event => {
           const isCustom = event._isCustom || false;
+          const eventId = event.id || event.title.replace(/\s+/g, "-");
 
           const card = document.createElement("div");
           card.className = "bg-white p-4 rounded shadow flex flex-col justify-between";
@@ -120,17 +121,22 @@
           const name = event.name || event.title || "Unnamed Event";
           const venue = event._embedded?.venues?.[0]?.name || event.venue || "";
           const link = event.url || "#";
-          const eventId = event.id || name.replace(/\s+/g, "-");
 
           card.innerHTML = `
             <img src="${image}" alt="${name}" class="w-full h-40 object-cover mb-3 rounded">
             <h3 class="text-lg font-bold mb-1">${name}</h3>
             <p class="text-sm text-gray-600 mb-2">${date} at ${venue}</p>
             ${isCustom ? '<span class="inline-block bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded mb-2">🔥 Brand New</span>' : ""}
-            <div class="flex justify-between items-center mt-auto">
+            <div class="flex justify-between items-center mt-auto gap-2">
               <a href="${link}" target="_blank" class="text-sm text-blue-600 underline">View</a>
               <button class="bookmark-btn text-red-500 text-xl" title="Save to bookmarks">❤</button>
+              <a href="reviews.html?eventId=${encodeURIComponent(eventId)}&name=${encodeURIComponent(name)}" class="text-sm text-purple-600 underline">Reviews</a>
             </div>
+
+            <form class="review-form mt-4">
+              <input type="text" placeholder="Write a review..." class="w-full border rounded p-2 mb-2 review-text" />
+              <button type="submit" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-sm">Submit Review</button>
+            </form>
           `;
 
           card.querySelector(".bookmark-btn").addEventListener("click", async () => {
@@ -146,6 +152,26 @@
             } catch (err) {
               console.error("Failed to save bookmark:", err);
               alert("Could not save bookmark.");
+            }
+          });
+
+          card.querySelector(".review-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const input = card.querySelector(".review-text");
+            const reviewText = input.value.trim();
+            if (!reviewText) return;
+
+            try {
+              await addDoc(collection(db, `reviews/${eventId}/entries`), {
+                uid,
+                text: reviewText,
+                timestamp: serverTimestamp()
+              });
+              input.value = "";
+              alert("Review submitted!");
+            } catch (err) {
+              console.error("Failed to submit review:", err);
+              alert("Could not submit review.");
             }
           });
 
@@ -243,11 +269,10 @@
         const genre = document.getElementById("genre-input").value;
         const start = document.getElementById("start-date").value;
         const end = document.getElementById("end-date").value;
-        if (city) fetchEvents(city, genre, start, end);
+        fetchEvents(city, genre, start, end);
       });
 
       fetchEvents();
-
       const userDoc = await getDoc(doc(db, "users", uid));
       const prefs = userDoc.data()?.preferences || [];
       loadSuggestedEvents(prefs);
