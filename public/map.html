@@ -19,7 +19,15 @@
   </header>
 
   <main class="max-w-6xl mx-auto p-4">
-    
+    <div class="mb-4">
+      <label for="radius" class="mr-2 font-medium">Show events within</label>
+      <select id="radius" class="border p-2 rounded">
+        <option value="10">10 miles</option>
+        <option value="25">25 miles</option>
+        <option value="50">50 miles</option>
+        <option value="100">100 miles</option>
+      </select>
+    </div>
     <div id="map" class="rounded shadow"></div>
   </main>
 
@@ -43,35 +51,98 @@
     const db = getFirestore(app);
 
     const map = L.map('map').setView([51.505, -0.09], 6);
+    const radiusSelect = document.getElementById("radius");
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) return window.location.href = "index.html";
+    const apiKey = "dojeaFaTHVOWAk2owQzuiElRVjpdUQiT";
 
-      const logoutBtn = document.getElementById("logout-button");
-      logoutBtn.addEventListener("click", () => auth.signOut().then(() => window.location.href = "index.html"));
+    // Distance calculation
+    function haversineDistance(lat1, lon1, lat2, lon2) {
+      const toRad = deg => deg * Math.PI / 180;
+      const R = 3958.8; // radius in miles
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
 
-      // Get custom events
+    async function loadCustomEvents(userLat, userLng, radiusMiles) {
       const snap = await getDocs(collection(db, "events_custom"));
       snap.forEach(doc => {
         const data = doc.data();
         const { latitude, longitude, title, city, url } = data;
         if (latitude && longitude) {
-          L.marker([latitude, longitude]).addTo(map)
-            .bindPopup(`<strong>${title}</strong><br>${city}<br><a href="${url}" target="_blank" class="text-blue-600 underline">View</a>`);
+          const dist = haversineDistance(userLat, userLng, latitude, longitude);
+          if (dist <= radiusMiles) {
+            L.marker([latitude, longitude]).addTo(map)
+              .bindPopup(`<strong>${title}</strong><br>${city}<br><a href="${url}" target="_blank" class="text-blue-600 underline">View</a>`);
+          }
         }
       });
-    });
+    }
 
-    // Optional: Add current location
-    navigator.geolocation.getCurrentPosition(pos => {
-      const { latitude, longitude } = pos.coords;
-      L.marker([latitude, longitude]).addTo(map)
+    async function loadTicketmasterEvents(userLat, userLng, radiusMiles) {
+      const url = `https://app.ticketmaster.com/discovery/v2/events.json?latlong=${userLat},${userLng}&radius=${radiusMiles}&unit=miles&countryCode=GB&size=100&apikey=${apiKey}`;
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        const events = data._embedded?.events || [];
+
+        events.forEach(ev => {
+          const venue = ev._embedded?.venues?.[0];
+          const lat = parseFloat(venue?.location?.latitude);
+          const lng = parseFloat(venue?.location?.longitude);
+
+          if (lat && lng) {
+            L.marker([lat, lng]).addTo(map)
+              .bindPopup(`<strong>${ev.name}</strong><br>${venue.name}<br><a href="${ev.url}" target="_blank" class="text-blue-600 underline">View</a>`);
+          }
+        });
+
+        console.log("🎯 Ticketmaster events found:", events.length);
+      } catch (err) {
+        console.error("Failed to load Ticketmaster events:", err);
+      }
+    }
+
+    function loadAllEvents(userLat, userLng) {
+      const radius = parseInt(radiusSelect.value);
+      map.eachLayer(layer => {
+        if (layer instanceof L.Marker) map.removeLayer(layer);
+      });
+
+      // Show user location again
+      L.marker([userLat, userLng]).addTo(map)
         .bindPopup("📍 You are here").openPopup();
-      map.setView([latitude, longitude], 10);
+
+      loadCustomEvents(userLat, userLng, radius);
+      loadTicketmasterEvents(userLat, userLng, radius);
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return window.location.href = "index.html";
+
+      document.getElementById("logout-button").addEventListener("click", () => {
+        auth.signOut().then(() => window.location.href = "index.html");
+      });
+
+      navigator.geolocation.getCurrentPosition(pos => {
+        const userLat = pos.coords.latitude;
+        const userLng = pos.coords.longitude;
+
+        map.setView([userLat, userLng], 10);
+        loadAllEvents(userLat, userLng);
+
+        radiusSelect.addEventListener("change", () => {
+          loadAllEvents(userLat, userLng);
+        });
+      }, () => {
+        alert("Unable to access your location.");
+      });
     });
   </script>
 </body>

@@ -114,7 +114,8 @@
 
         shown.forEach(event => {
           const isCustom = event._isCustom || false;
-          const eventId = event.id || event.title.replace(/\s+/g, "-");
+          const safeTitle = event.title || event.name || "untitled";
+          const eventId = event.id || safeTitle.replace(/\s+/g, "-");
 
           const card = document.createElement("div");
           card.className = "bg-white p-4 rounded shadow flex flex-col justify-between";
