@@ -128,10 +128,10 @@
             <p class="text-sm text-gray-600 mb-2">${date} at ${venue}</p>
             ${isCustom ? '<span class="inline-block bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded mb-2">🔥 Brand New</span>' : ""}
             <div class="flex justify-between items-center mt-auto gap-2">
-              <a href="${link}" target="_blank" class="text-sm text-blue-600 underline">View</a>
-              <button class="bookmark-btn text-red-500 text-xl" title="Save to bookmarks">❤</button>
-              <a href="reviews.html?eventId=${encodeURIComponent(eventId)}&name=${encodeURIComponent(name)}" class="text-sm text-purple-600 underline">Reviews</a>
-            </div>
+            <a href="${link}" target="_blank" class="text-sm text-blue-600 underline">View</a>
+            <button class="bookmark-btn text-red-500 text-xl" title="Save to bookmarks">❤</button>
+            <a href="reviews.html?eventId=${encodeURIComponent(eventId)}&name=${encodeURIComponent(name)}" class="text-sm text-purple-600 underline">Reviews</a>
+          </div>
 
             <form class="review-form mt-4">
               <input type="text" placeholder="Write a review..." class="w-full border rounded p-2 mb-2 review-text" />
