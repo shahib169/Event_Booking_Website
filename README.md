@@ -19,6 +19,7 @@ Event_Booking_Website/
     |-- package-lock.json
     |-- package.json
 |-- public/
+    |-- 404.html
     ├── index.html                      # Login page
     ├── register.html                   # User registration
     ├── events.html                     # Main event search and display page
@@ -51,6 +52,37 @@ Event_Booking_Website/
 4. Log in or sign up using Firebase Authentication
 
 > *Make sure internet connection is active to load Firebase and EmailJS via CDN*
+
+⚙️ Setup Instructions
+
+1. Firebase Configuration
+You must:
+
+Create a Firebase project at https://console.firebase.google.com/
+Enable Authentication (Email/Password)
+Enable Firestore Database
+Create the users, events_custom, and reviews collections
+Paste your Firebase credentials into each HTML file in the relevant <script type="module"> Firebase config block.
+
+2. EmailJS Configuration (for email notifications)
+Go to https://www.emailjs.com/
+Set up:
+Service ID: service_fgclw6n
+Template ID: template_0nmiqqb
+Public Key: l4gAsCrgjNW3SJ0PG
+Your EmailJS script is already included in the project.
+
+3. Hosting the Website
+Option A: Firebase Hosting
+
+npm install -g firebase-tools
+firebase login
+firebase init hosting
+firebase deploy
+
+Option B: Run Locally
+Open index.html in your browser.
+Make sure Firebase Firestore & Auth rules are set to allow access as per your security rules.
 
 ---
 
@@ -105,9 +137,10 @@ Event_Booking_Website/
 
 ---
 
-## Hosted Version (Optional)
+## Hosted Version
 
 ** Hosted at**: 'https://github.com/MdShahib/Event_Booking_Website'
+'http://127.0.0.1:5500/public/index.html'
 
 ---
 
@@ -129,15 +162,5 @@ Event_Booking_Website/
 ## Support & Contact
 
 For any issues setting up the project, contact me at shahib169@gmail.com or md.shahib@city.ac.uk or refer to Firebase and EmailJS documentation.
-
----
-
-## Submission Notes
-
-- ZIP contains all files necessary to run the app
-- README explains structure, installation, and testing
-- Code is non-confidential and safe to evaluate
-
----
 
 **Enjoy exploring and booking events with your friends!**
