@@ -34,9 +34,8 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
     import {
-      getFirestore, collection, getDocs, doc, setDoc, deleteDoc, getDoc, onSnapshot, query, where
+      getFirestore, collection, getDocs, doc, setDoc, deleteDoc, getDoc, onSnapshot
     } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-    
 
     const firebaseConfig = {
       apiKey: "AIzaSyCyBdL6d2jDhWqXrIVAHpZfhFnxVq-J11I",
@@ -56,6 +55,8 @@
     const friendList = document.getElementById("friend-list");
     const activityContainer = document.getElementById("friend-activity-list");
 
+    let currentFriends = [];
+
     onAuthStateChanged(auth, async (user) => {
       if (!user) return window.location.href = "index.html";
       const uid = user.uid;
@@ -64,18 +65,28 @@
         auth.signOut().then(() => window.location.href = "index.html");
       });
 
+      await loadFriendsList(uid);
+      await loadFriendActivity();
+
       // Load friends
-      const friendsSnap = await getDocs(collection(db, `users/${uid}/friends`));
-      if (!friendsSnap.empty) {
+      async function loadFriendsList(uid) {
+        const friendsSnap = await getDocs(collection(db, `users/${uid}/friends`));
         friendList.innerHTML = "";
+        currentFriends = [];
+
+        if (friendsSnap.empty) {
+          friendList.innerHTML = '<p class="text-gray-500">No friends yet.</p>';
+          return;
+        }
+
         for (const friendDoc of friendsSnap.docs) {
           const friendId = friendDoc.id;
           const friendName = friendDoc.data().name || "Friend";
+          currentFriends.push({ id: friendId, name: friendName });
 
           const li = document.createElement("li");
           li.className = "bg-white p-2 rounded shadow flex justify-between items-center";
 
-          // Real-time status
           const statusRef = doc(db, "users", friendId);
           onSnapshot(statusRef, (docSnap) => {
             const status = docSnap.data()?.status === "online" ? "🟢 Online" : "⚪️ Offline";
@@ -90,6 +101,8 @@
           li.querySelector(".remove-btn").addEventListener("click", async () => {
             await deleteDoc(doc(db, `users/${uid}/friends/${friendId}`));
             li.remove();
+            await loadFriendsList(uid);
+            await loadFriendActivity();
           });
 
           friendList.appendChild(li);
@@ -99,46 +112,61 @@
       // Search users to add
       searchInput.addEventListener("input", async (e) => {
         const term = e.target.value.trim().toLowerCase();
-        results.innerHTML = "";
-
+        searchResults.innerHTML = "";
         if (!term) return;
 
         const usersSnap = await getDocs(collection(db, "users"));
         usersSnap.forEach(docSnap => {
-            const data = docSnap.data();
-            const displayName = (data.name || "").toLowerCase();
-            const displayEmail = (data.email || "").toLowerCase();
+          const data = docSnap.data();
+          const displayName = (data.name || "").toLowerCase();
+          const displayEmail = (data.email || "").toLowerCase();
+          const userId = docSnap.id;
 
-            if (displayName.includes(term) || displayEmail.includes(term)) {
-            const userId = docSnap.id;
-            if (userId === auth.currentUser.uid) return; // skip self
-
+          if ((displayName.includes(term) || displayEmail.includes(term)) && userId !== auth.currentUser.uid) {
             const result = document.createElement("div");
             result.className = "flex justify-between items-center bg-white p-3 rounded shadow";
             result.innerHTML = `
-                <div>
+              <div>
                 <p class="font-medium">${data.name || "No Name"}</p>
                 <p class="text-sm text-gray-600">${data.email || ""}</p>
-                </div>
-                <button class="add-friend-btn text-blue-600 hover:underline" data-id="${userId}" data-name="${data.name || "Friend"}">Add</button>
+              </div>
+              <button class="add-friend-btn text-blue-600 hover:underline" data-id="${userId}" data-name="${data.name || "Friend"}">Add</button>
             `;
-            results.appendChild(result);
-            }
-        });
-        });
 
-      // Load friend activity
-      try {
-        if (friendsSnap.empty) {
+            result.querySelector(".add-friend-btn").addEventListener("click", async () => {
+              try {
+                await setDoc(doc(db, `users/${uid}/friends/${userId}`), {
+                  name: data.name || "Friend",
+                  email: data.email || ""
+                });
+                alert("Friend added!");
+                await loadFriendsList(uid);
+                await loadFriendActivity();
+              } catch (err) {
+                console.error("Error adding friend:", err);
+                alert("Could not add friend.");
+              }
+            });
+
+            searchResults.appendChild(result);
+          }
+        });
+      });
+
+      // Load activity
+      async function loadFriendActivity() {
+        activityContainer.innerHTML = "";
+
+        if (currentFriends.length === 0) {
           activityContainer.innerHTML = '<p class="text-gray-500">You have no friends added yet.</p>';
           return;
         }
 
         const allActivities = [];
 
-        for (const friendDoc of friendsSnap.docs) {
-          const friendId = friendDoc.id;
-          const friendName = friendDoc.data().name || "A friend";
+        for (const friend of currentFriends) {
+          const friendId = friend.id;
+          const friendName = friend.name;
 
           const bookmarksSnap = await getDocs(collection(db, `users/${friendId}/bookmarks`));
           bookmarksSnap.forEach(docSnap => {
@@ -178,10 +206,6 @@
 
           activityContainer.appendChild(card);
         });
-
-      } catch (err) {
-        console.error("Error loading friend activity:", err);
-        activityContainer.innerHTML = '<p class="text-red-500">Failed to load friend activity.</p>';
       }
     });
   </script>
