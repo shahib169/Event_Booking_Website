@@ -4,6 +4,11 @@
   <meta charset="UTF-8" />
   <title>Notifications - Event Booking</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+<script>
+  emailjs.init("l4gAsCrgjNW3SJ0PG");
+</script>
+
 </head>
 <body class="bg-gray-100 text-gray-900">
   <header class="bg-white shadow p-4 mb-6">
@@ -40,6 +45,9 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
     import { getFirestore, collection, getDocs, doc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+    emailjs.init("l4gAsCrgjNW3SJ0PG");
+
 
     const firebaseConfig = {
       apiKey: "AIzaSyCyBdL6d2jDhWqXrIVAHpZfhFnxVq-J11I",

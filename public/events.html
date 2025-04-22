@@ -174,7 +174,16 @@
                 message: `You bookmarked "${name}"`
               });
 
-              // Notify all friends
+              const userDoc = await getDoc(doc(db, `users/${uid}`));
+              if (userDoc.exists() && userDoc.data().emailOptIn) {
+                sendEmail(user.email, {
+                  name: user.displayName || user.email,
+                  message: `You bookmarked "${name}"`,
+                  time: new Date().toLocaleString()
+                });
+              }
+
+
               const friendsSnap = await getDocs(collection(db, `users/${uid}/friends`));
               for (const friend of friendsSnap.docs) {
                 const friendId = friend.id;
