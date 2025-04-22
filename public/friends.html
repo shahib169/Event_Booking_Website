@@ -18,20 +18,25 @@
   </header>
 
   <main class="max-w-6xl mx-auto p-4">
+    <section class="mb-10">
+      <h2 class="text-xl font-semibold mb-4">Add or Remove Friends</h2>
+      <input id="search-input" type="text" placeholder="Search by name or email..." class="border p-2 rounded w-full mb-4" />
+      <div id="search-results" class="space-y-2 mb-6"></div>
+      <h3 class="text-lg font-semibold mb-2">Your Friends</h3>
+      <ul id="friend-list" class="space-y-2 mb-8"></ul>
+    </section>
+
     <h1 class="text-2xl font-bold mb-6">👥 Friend Activity</h1>
     <div id="friend-activity-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-    <section class="mb-6">
-        <h2 class="text-xl font-semibold mb-4">Add Friends</h2>
-        <input id="search-input" type="text" placeholder="Search by name or email..." class="border p-2 rounded w-full mb-4" />
-        <div id="search-results" class="space-y-2"></div>
-      </section>
-      
   </main>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
-    import { getFirestore, collection, getDocs, doc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import {
+      getFirestore, collection, getDocs, doc, setDoc, deleteDoc, getDoc, onSnapshot, query, where
+    } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    
 
     const firebaseConfig = {
       apiKey: "AIzaSyCyBdL6d2jDhWqXrIVAHpZfhFnxVq-J11I",
@@ -46,19 +51,86 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    const container = document.getElementById("friend-activity-list");
+    const searchInput = document.getElementById("search-input");
+    const searchResults = document.getElementById("search-results");
+    const friendList = document.getElementById("friend-list");
+    const activityContainer = document.getElementById("friend-activity-list");
 
     onAuthStateChanged(auth, async (user) => {
       if (!user) return window.location.href = "index.html";
+      const uid = user.uid;
 
       document.getElementById("logout-button").addEventListener("click", () => {
         auth.signOut().then(() => window.location.href = "index.html");
       });
 
+      // Load friends
+      const friendsSnap = await getDocs(collection(db, `users/${uid}/friends`));
+      if (!friendsSnap.empty) {
+        friendList.innerHTML = "";
+        for (const friendDoc of friendsSnap.docs) {
+          const friendId = friendDoc.id;
+          const friendName = friendDoc.data().name || "Friend";
+
+          const li = document.createElement("li");
+          li.className = "bg-white p-2 rounded shadow flex justify-between items-center";
+
+          // Real-time status
+          const statusRef = doc(db, "users", friendId);
+          onSnapshot(statusRef, (docSnap) => {
+            const status = docSnap.data()?.status === "online" ? "🟢 Online" : "⚪️ Offline";
+            li.querySelector(".status").textContent = status;
+          });
+
+          li.innerHTML = `
+            <span>${friendName} <span class="status text-sm text-gray-500"></span></span>
+            <button class="text-red-500 text-sm underline remove-btn">Remove</button>
+          `;
+
+          li.querySelector(".remove-btn").addEventListener("click", async () => {
+            await deleteDoc(doc(db, `users/${uid}/friends/${friendId}`));
+            li.remove();
+          });
+
+          friendList.appendChild(li);
+        }
+      }
+
+      // Search users to add
+      searchInput.addEventListener("input", async (e) => {
+        const term = e.target.value.trim().toLowerCase();
+        results.innerHTML = "";
+
+        if (!term) return;
+
+        const usersSnap = await getDocs(collection(db, "users"));
+        usersSnap.forEach(docSnap => {
+            const data = docSnap.data();
+            const displayName = (data.name || "").toLowerCase();
+            const displayEmail = (data.email || "").toLowerCase();
+
+            if (displayName.includes(term) || displayEmail.includes(term)) {
+            const userId = docSnap.id;
+            if (userId === auth.currentUser.uid) return; // skip self
+
+            const result = document.createElement("div");
+            result.className = "flex justify-between items-center bg-white p-3 rounded shadow";
+            result.innerHTML = `
+                <div>
+                <p class="font-medium">${data.name || "No Name"}</p>
+                <p class="text-sm text-gray-600">${data.email || ""}</p>
+                </div>
+                <button class="add-friend-btn text-blue-600 hover:underline" data-id="${userId}" data-name="${data.name || "Friend"}">Add</button>
+            `;
+            results.appendChild(result);
+            }
+        });
+        });
+
+      // Load friend activity
       try {
-        const friendsSnap = await getDocs(collection(db, `users/${user.uid}/friends`));
         if (friendsSnap.empty) {
-          container.innerHTML = '<p class="text-gray-500">You have no friends added yet.</p>';
+          activityContainer.innerHTML = '<p class="text-gray-500">You have no friends added yet.</p>';
           return;
         }
 
@@ -68,7 +140,6 @@
           const friendId = friendDoc.id;
           const friendName = friendDoc.data().name || "A friend";
 
-          // Load bookmarks
           const bookmarksSnap = await getDocs(collection(db, `users/${friendId}/bookmarks`));
           bookmarksSnap.forEach(docSnap => {
             const data = docSnap.data();
@@ -78,13 +149,10 @@
               ...data
             });
           });
-
-          // Load reviews (optional)
-          // You can add this section if you want to show reviews too
         }
 
         if (allActivities.length === 0) {
-          container.innerHTML = '<p class="text-gray-500">No friend activity yet.</p>';
+          activityContainer.innerHTML = '<p class="text-gray-500">No friend activity yet.</p>';
           return;
         }
 
@@ -97,24 +165,23 @@
             <p class="text-sm text-gray-600 mb-1">${item.date} at ${item.venue}</p>
             <p class="text-sm">💬 ${item.friend} bookmarked this</p>
             <a href="${item.url}" target="_blank" class="text-blue-600 underline text-sm">View Event</a>
-            <button class="mt-2 text-sm text-green-600 underline invite-btn" data-title="${item.title}" data-url="${item.url}">Invite a friend</button>
+            <button class="mt-2 text-sm text-green-600 underline share-btn" data-title="${item.title}" data-url="${item.url}">Share</button>
           `;
 
-          // Add invite email link
-          card.querySelector(".invite-btn").addEventListener("click", (e) => {
+          card.querySelector(".share-btn").addEventListener("click", (e) => {
             const title = e.target.dataset.title;
             const url = e.target.dataset.url;
-            const subject = `Join me at ${title}`;
-            const body = `Hey! Check out this event: ${url}`;
+            const subject = `Check out this event: ${title}`;
+            const body = `Thought you'd like this: ${url}`;
             window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
           });
 
-          container.appendChild(card);
+          activityContainer.appendChild(card);
         });
 
       } catch (err) {
         console.error("Error loading friend activity:", err);
-        container.innerHTML = '<p class="text-red-500">Failed to load friend activity.</p>';
+        activityContainer.innerHTML = '<p class="text-red-500">Failed to load friend activity.</p>';
       }
     });
   </script>
