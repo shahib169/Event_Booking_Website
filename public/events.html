@@ -54,6 +54,14 @@
       </div>
       <div id="suggested-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
     </section>
+    <section id="ai-matches-section" class="mb-10 p-4 bg-green-50 border border-green-200 rounded-lg">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold text-green-700 flex items-center gap-2">More you might like! </h2>
+        <span class="text-sm text-green-600">Smart suggestions just for you</span>
+      </div>
+      <div id="ai-matches-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
+    </section>
+    
 
     <hr class="border-t border-gray-300 mb-8">
 
@@ -115,7 +123,7 @@
         shown.forEach(event => {
           const isCustom = event._isCustom || false;
           const safeTitle = event.title || event.name || "untitled";
-          const eventId = event.id || safeTitle.replace(/\s+/g, "-");
+        const eventId = event.id || safeTitle.replace(/\s+/g, "-");
 
           const card = document.createElement("div");
           card.className = "bg-white p-4 rounded shadow flex flex-col justify-between";
@@ -267,6 +275,51 @@
         renderEvents(finalSuggestions, suggestedContainer);
       }
 
+      async function loadAIMatches(userPreferences) {
+        const aiSection = document.getElementById("ai-matches-section");
+        const aiList = document.getElementById("ai-matches-list");
+
+        if (!userPreferences.length) {
+          aiSection.style.display = "none";
+          return;
+        }
+
+        aiSection.style.display = "block";
+        aiList.innerHTML = "";
+
+        try {
+          const events = [];
+          const cities = ["London", "Manchester", "Birmingham", "Glasgow", "Leeds"];
+
+          for (const city of cities) {
+            for (const genre of userPreferences) {
+              const url = `https://us-central1-website-a1862.cloudfunctions.net/getEvents?city=${encodeURIComponent(city)}&classificationId=${genre}`;
+              const res = await fetch(url);
+              const data = await res.json();
+              events.push(...(data._embedded?.events || []));
+            }
+          }
+
+          const unique = [];
+          const names = new Set();
+          for (const event of events) {
+            const key = event.name?.toLowerCase().trim();
+            if (key && !names.has(key)) {
+              names.add(key);
+              unique.push(event);
+            }
+          }
+
+          const shuffled = unique.sort(() => 0.5 - Math.random()).slice(0, 6);
+          renderEvents(shuffled, aiList);
+
+        } catch (err) {
+          console.error("Failed to load AI matches:", err);
+          aiList.innerHTML = '<p class="text-red-500">Error loading AI matches.</p>';
+        }
+      }
+
+
       searchForm.addEventListener("submit", (e) => {
         e.preventDefault();
         const city = cityInput.value.trim();
@@ -280,6 +333,7 @@
       const userDoc = await getDoc(doc(db, "users", uid));
       const prefs = userDoc.data()?.preferences || [];
       loadSuggestedEvents(prefs);
+      loadAIMatches(prefs);
     });
   </script>
 </body>
