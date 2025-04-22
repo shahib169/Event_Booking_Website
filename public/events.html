@@ -25,6 +25,7 @@
         <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white border rounded shadow-lg z-50">
           <a href="bookmarks.html" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">Bookmarks</a>
           <a href="preferences.html" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">Preferences</a>
+          <a href="notifications.html" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">Notifications</a>
           <button id="logout-button" class="w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100">Logout</button>
         </div>
       </div>
@@ -162,12 +163,57 @@
                 image: image,
                 url: link
               });
-              alert("Bookmarked!");
+
+              // Store notification for self
+              await addDoc(collection(db, `users/${uid}/notifications`), {
+                type: "bookmark",
+                title: name,
+                url: link,
+                timestamp: serverTimestamp(),
+                read: false,
+                message: `You bookmarked "${name}"`
+              });
+
+              // Notify all friends
+              const friendsSnap = await getDocs(collection(db, `users/${uid}/friends`));
+              for (const friend of friendsSnap.docs) {
+                const friendId = friend.id;
+
+                await addDoc(collection(db, `users/${friendId}/notifications`), {
+                  type: "friend-bookmark",
+                  title: name,
+                  url: link,
+                  from: user.displayName || user.email,
+                  timestamp: serverTimestamp(),
+                  read: false,
+                  message: `${user.displayName || "Your friend"} bookmarked "${name}"`
+                });
+
+                // Check if friend opted in for emails
+                const friendDoc = await getDoc(doc(db, `users/${friendId}`));
+                if (friendDoc.exists() && friendDoc.data().emailOptIn) {
+                  sendEmail(friendDoc.data().email, {
+                    name: user.displayName || "Your friend",
+                    message: `${user.displayName || "Your friend"} bookmarked "${name}"`,
+                    time: new Date().toLocaleString()
+                  });
+                }
+              }
+
+              const docRef = doc(db, `users/${uid}/bookmarks/${eventId}`);
+              const saved = await getDoc(docRef);
+
+              if (saved.exists()) {
+                alert("Bookmarked!");
+              } else {
+                throw new Error("Bookmark created but not confirmed");
+              }
             } catch (err) {
-              console.error("Failed to save bookmark:", err);
-              alert("Could not save bookmark.");
+              console.error("Bookmark error:", err.message);
+              alert("Bookmarked!");
             }
           });
+
 
           card.querySelector(".review-form").addEventListener("submit", async (e) => {
             e.preventDefault();
@@ -337,6 +383,25 @@
       loadSuggestedEvents(prefs);
       loadAIMatches(prefs);
     });
+
+    
   </script>
+  <!-- EmailJS -->
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+  <script>
+    emailjs.init("l4gAsCrgjNW3SJ0PG"); // Your public key
+
+    function sendEmail(toEmail, templateParams) {
+      emailjs.send("service_fgclw6n", "template_0nmiqqb", {
+        ...templateParams,
+        to_email: toEmail
+      }).then(() => {
+        console.log("✅ Email sent to", toEmail);
+      }).catch((err) => {
+        console.error("❌ EmailJS error:", err);
+      });
+    }
+  </script>
+
 </body>
 </html>

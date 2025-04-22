@@ -34,6 +34,12 @@
           <span class="ml-2">Film</span>
         </label>
       </div>
+      <div class="pt-2">
+        <label class="inline-flex items-center">
+          <input type="checkbox" id="email-opt-in" class="form-checkbox" />
+          <span class="ml-2">Receive email notifications</span>
+        </label>
+      </div>      
       <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full">Save Preferences</button>
     </form>
     <div class="mt-6 text-center">
@@ -47,7 +53,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
     import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-
+  
     const firebaseConfig = {
       apiKey: "AIzaSyCyBdL6d2jDhWqXrIVAHpZfhFnxVq-J11I",
       authDomain: "website-a1862.firebaseapp.com",
@@ -56,34 +62,48 @@
       messagingSenderId: "1039428075573",
       appId: "1:1039428075573:web:2026ad869ccfe56495317c"
     };
-
+  
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-
+  
     const form = document.getElementById("preferences-form");
     const message = document.getElementById("message");
-
+    const optInCheckbox = document.getElementById("email-opt-in");
+  
     onAuthStateChanged(auth, async (user) => {
       if (!user) return (window.location.href = "index.html");
-
+  
       const uid = user.uid;
       const prefRef = doc(db, "users", uid);
       const snapshot = await getDoc(prefRef);
-
+  
       if (snapshot.exists()) {
         const data = snapshot.data();
         const selected = data.preferences || [];
+        const optedIn = data.emailOptIn || false;
+  
         document.querySelectorAll("input[name='genres']").forEach(input => {
           input.checked = selected.includes(input.value);
         });
+  
+        optInCheckbox.checked = optedIn;
       }
-
+  
+      optInCheckbox.addEventListener("change", async () => {
+        try {
+          await setDoc(prefRef, { emailOptIn: optInCheckbox.checked }, { merge: true });
+        } catch (err) {
+          console.error("Failed to update email preference:", err);
+          alert("Could not update email preference.");
+        }
+      });
+  
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
         const selectedGenres = Array.from(document.querySelectorAll("input[name='genres']:checked"))
                                     .map(input => input.value);
-
+  
         try {
           await setDoc(prefRef, { preferences: selectedGenres }, { merge: true });
           message.classList.remove("hidden");
@@ -93,6 +113,6 @@
         }
       });
     });
-  </script>
+  </script>  
 </body>
 </html>
