@@ -1,6 +1,6 @@
 const functions = require("firebase-functions");
 const { fetch } = require("undici");
-const cors = require("cors")({ origin: true }); // ✅ use CORS middleware
+const cors = require("cors")({ origin: true }); // use CORS middleware
 
 const apiKey = "dojeaFaTHVOWAk2owQzuiElRVjpdUQiT";
 
